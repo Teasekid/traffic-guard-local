@@ -10,6 +10,9 @@ export interface Offence {
   dateTime: string;
   fineAmount: number;
   paymentStatus: "Pending" | "Paid";
+  transactionId?: string;
+  gatewayRef?: string;
+  paymentDate?: string;
 }
 
 interface OffenceContextType {
@@ -18,7 +21,7 @@ interface OffenceContextType {
   updateOffence: (id: string, offence: Partial<Offence>) => void;
   deleteOffence: (id: string) => void;
   getOffencesByVehicle: (vehicleNumber: string) => Offence[];
-  payFine: (id: string) => void;
+  payFine: (id: string, transactionId: string, gatewayRef: string) => void;
 }
 
 const OffenceContext = createContext<OffenceContextType | undefined>(undefined);
@@ -106,8 +109,14 @@ export const OffenceProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const payFine = (id: string) => {
-    updateOffence(id, { paymentStatus: "Paid" });
+  const payFine = (id: string, transactionId: string, gatewayRef: string) => {
+    const paymentDate = new Date().toISOString();
+    updateOffence(id, { 
+      paymentStatus: "Paid",
+      transactionId,
+      gatewayRef,
+      paymentDate
+    });
     toast.success("Payment recorded successfully");
   };
 

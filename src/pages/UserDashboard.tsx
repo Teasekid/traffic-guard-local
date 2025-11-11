@@ -1,18 +1,24 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOffences } from "@/contexts/OffenceContext";
+import { useOffences, Offence } from "@/contexts/OffenceContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Car, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { LogOut, Car, AlertCircle, CheckCircle2, Clock, Receipt } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import PaymentModal from "@/components/PaymentModal";
+import PaymentReceipt from "@/components/PaymentReceipt";
 
 const UserDashboard = () => {
   const { user, logout } = useAuth();
   const { getOffencesByVehicle, payFine } = useOffences();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | "Paid" | "Pending">("all");
+  const [selectedOffence, setSelectedOffence] = useState<Offence | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptOffence, setReceiptOffence] = useState<Offence | null>(null);
 
   const vehicleNumber = user?.email || "";
   const userOffences = getOffencesByVehicle(vehicleNumber);
@@ -25,6 +31,22 @@ const UserDashboard = () => {
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const handlePayClick = (offence: Offence) => {
+    setSelectedOffence(offence);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (transactionId: string, gatewayRef: string) => {
+    if (selectedOffence) {
+      payFine(selectedOffence.id, transactionId, gatewayRef);
+    }
+  };
+
+  const handleViewReceipt = (offence: Offence) => {
+    setReceiptOffence(offence);
+    setShowReceiptModal(true);
   };
 
   const totalFines = userOffences.reduce((sum, off) => sum + off.fineAmount, 0);
@@ -151,14 +173,25 @@ const UserDashboard = () => {
                             </p>
                           </div>
                         </div>
-                        {offence.paymentStatus === "Pending" && (
-                          <Button
-                            onClick={() => payFine(offence.id)}
-                            className="w-full sm:w-auto"
-                          >
-                            Pay Fine
-                          </Button>
-                        )}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          {offence.paymentStatus === "Pending" ? (
+                            <Button
+                              onClick={() => handlePayClick(offence)}
+                              className="w-full sm:w-auto"
+                            >
+                              Pay Fine
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => handleViewReceipt(offence)}
+                              variant="outline"
+                              className="w-full sm:w-auto"
+                            >
+                              <Receipt className="h-4 w-4 mr-2" />
+                              View Receipt
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -168,6 +201,26 @@ const UserDashboard = () => {
           </CardContent>
         </Card>
       </main>
+
+      {selectedOffence && (
+        <PaymentModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          offence={selectedOffence}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {receiptOffence && receiptOffence.transactionId && receiptOffence.gatewayRef && receiptOffence.paymentDate && (
+        <PaymentReceipt
+          open={showReceiptModal}
+          onOpenChange={setShowReceiptModal}
+          offence={receiptOffence}
+          transactionId={receiptOffence.transactionId}
+          gatewayRef={receiptOffence.gatewayRef}
+          paymentDate={receiptOffence.paymentDate}
+        />
+      )}
     </div>
   );
 };
